@@ -55,12 +55,25 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Prior 조합 비교 실험 (no_prior / rgb_only / hsv_only / both + 파라미터 변형):
+Prior 조합 비교 실험:
 
-```python
-from experiment import compare_configs
-compare_configs(rgb_path, nc_path)
+```bash
+python experiment.py
 ```
+
+아래 조합을 순서대로 실행하고 IoU를 출력한다:
+
+| 실험 이름 | 설명 |
+|----------|------|
+| `no_prior` | Threshold + Canny만 사용, Prior 없음 |
+| `rgb_prior only` | RGB 색상 조건만 적용 |
+| `hsv_prior only` | HSV 채도/명도 조건만 적용 |
+| `both_prior (default s<60)` | RGB + HSV Prior 기본값 |
+| `both_prior (tight s<40)` | HSV 채도 조건 강화 |
+| `both_prior (loose s<80)` | HSV 채도 조건 완화 |
+| `both_prior (no region_grow)` | Region Growing 제외, Prior만 적용 |
+
+새로운 조합 추가는 `experiment.py`의 `EXPERIMENT_CONFIGS` 리스트에 항목을 추가하면 된다.
 
 ---
 

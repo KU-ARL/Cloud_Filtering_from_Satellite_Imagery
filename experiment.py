@@ -50,6 +50,13 @@ EXPERIMENT_CONFIGS: list[dict] = [
             "hsv_prior": {**DEFAULT_CONFIG["hsv_prior"], "s_max": 80},
         },
     },
+    {
+        "name": "both_prior (no region_grow)",
+        "config": {
+            **DEFAULT_CONFIG,
+            "region_grow": {**DEFAULT_CONFIG["region_grow"], "enabled": False},
+        },
+    },
 ]
 
 
