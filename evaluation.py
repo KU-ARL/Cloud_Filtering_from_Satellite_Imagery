@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from netCDF4 import Dataset
+from netCDF4 import Dataset  # type: ignore
 
 
 # =========================================================
@@ -42,6 +42,30 @@ def align_mask(
         interpolation=cv2.INTER_NEAREST,
     )
     return (resized > 0).astype(np.uint8)
+
+
+def save_ground_truth_image(
+    nc_path: str,
+    save_path: str,
+) -> None:
+    # =====================================================
+    # Ground Truth 시각화 이미지 저장
+    #
+    # 흰색  : 구름 (CLD <= 1)
+    # 검정  : 맑음 (CLD == 2)
+    # 회색  : 결측/마스크 (그 외)
+    # =====================================================
+    ground_truth = load_ground_truth(nc_path)
+    raw = Dataset(nc_path).variables['CLD'][:]
+
+    h, w = ground_truth.shape
+    img  = np.zeros((h, w, 3), dtype=np.uint8)
+
+    img[raw == 2]            = [30,  30,  30]   # 맑음 → 검정
+    img[ground_truth == 1]   = [255, 255, 255]  # 구름 → 흰색
+    img[np.ma.getmaskarray(raw)] = [100, 100, 100]  # 결측 → 회색
+
+    cv2.imwrite(save_path, img)
 
 
 def calculate_iou(

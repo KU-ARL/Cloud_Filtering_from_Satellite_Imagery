@@ -1,6 +1,6 @@
 import os
 from pipeline   import run_pipeline, DEFAULT_CONFIG
-from evaluation import load_ground_truth, calculate_iou
+from evaluation import load_ground_truth, calculate_iou, save_ground_truth_image
 
 
 # =========================================================
@@ -64,29 +64,42 @@ def compare_configs(
     rgb_path: str,
     nc_path: str,
     configs: list[dict] = EXPERIMENT_CONFIGS,
+    result_dir: str | None = None,
 ) -> list[dict]:
     # =====================================================
     # 여러 설정 조합을 순서대로 실행하고 IoU 비교
+    # result_dir 지정 시 각 설정의 overlay 이미지를 저장
     # =====================================================
     ground_truth = load_ground_truth(nc_path)
     results = []
+
+    if result_dir:
+        os.makedirs(result_dir, exist_ok=True)
 
     print(f"\n{'설정 이름':<35} IoU")
     print("-" * 45)
 
     for cfg in configs:
-        mask, _ = run_pipeline(rgb_path, cfg["config"])
+        mask, overlay = run_pipeline(rgb_path, cfg["config"])
         iou = calculate_iou(ground_truth, mask)
 
         results.append({"name": cfg["name"], "iou": iou})
         print(f"{cfg['name']:<35} {iou:.4f}")
 
+        if result_dir:
+            filename = cfg["name"].replace(" ", "_").replace("<", "").replace(">", "") + ".png"
+            cv2.imwrite(os.path.join(result_dir, filename), overlay)
+
     return results
 
 
 if __name__ == "__main__":
-    SRC_DIR   = os.path.join(os.path.dirname(__file__), "src")
-    rgb_path  = os.path.join(SRC_DIR, "gk2a_ami_le1b_rgb-s-true_ko020lc_202605210410.png")
-    nc_path   = os.path.join(SRC_DIR, "gk2a_ami_le2_cld_ko020lc_202605210410.nc")
+    import cv2
 
-    compare_configs(rgb_path, nc_path)
+    SRC_DIR    = os.path.join(os.path.dirname(__file__), "src")
+    RESULT_DIR = os.path.join(SRC_DIR, "result")
+    rgb_path   = os.path.join(SRC_DIR, "gk2a_ami_le1b_rgb-s-true_ko020lc_202605210410.png")
+    nc_path    = os.path.join(SRC_DIR, "gk2a_ami_le2_cld_ko020lc_202605210410.nc")
+
+    save_ground_truth_image(nc_path, os.path.join(RESULT_DIR, "ground_truth.png"))
+    compare_configs(rgb_path, nc_path, result_dir=RESULT_DIR)
