@@ -15,17 +15,39 @@ import numpy as np
 def apply_threshold(
     equalized: np.ndarray,
     value: int = 0,
+    method: str = "otsu",
+    adaptive_block: int = 51,
+    adaptive_c: int = -10,
 ) -> np.ndarray:
     # =====================================================
     # Threshold
     #
-    # value=0 이면 Otsu (자동 임계값)
-    # 사진마다 조명이 달라도 안정적으로 동작
+    # method="otsu"     : 전역 자동 임계값 (value=0 시 Otsu)
+    # method="adaptive" : 국소 영역 기준 임계값
+    #                     → 어두운 배경 위 회색 구름도 검출 가능
+    # method="both"     : 두 결과 OR → 상호 보완
+    #
+    # adaptive_block : 국소 영역 크기 (홀수)
+    # adaptive_c     : 음수일수록 local_mean보다 밝은 픽셀만 통과
     # =====================================================
+    if method == "adaptive":
+        return cv2.adaptiveThreshold(
+            equalized, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            adaptive_block,
+            adaptive_c,
+        )
+
+    if method == "both":
+        otsu     = apply_threshold(equalized, value, "otsu")
+        adaptive = apply_threshold(equalized, 0, "adaptive", adaptive_block, adaptive_c)
+        return cv2.bitwise_or(otsu, adaptive)
+
+    # method="otsu" 또는 고정값
     flags = cv2.THRESH_BINARY
     if value == 0:
         flags |= cv2.THRESH_OTSU
-
     _, thresh = cv2.threshold(equalized, value, 255, flags)
     return thresh
 

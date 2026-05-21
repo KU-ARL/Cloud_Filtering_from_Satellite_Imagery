@@ -13,12 +13,12 @@ from postprocessing import morphological_clean, filter_components
 DEFAULT_CONFIG: dict = {
     "bilateral":   {"d": 9, "sigma_color": 75.0, "sigma_space": 75.0},
     "clahe":       {"clip_limit": 2.0, "tile_grid": (8, 8)},
-    "threshold":   {"value": 0},
+    "threshold":   {"value": 0, "method": "otsu", "adaptive_block": 51, "adaptive_c": -10},
     "canny":       {"low": 100, "high": 200},
     "rgb_prior":   {"enabled": True, "brightness_min": 150, "uniformity_max": 20},
-    "hsv_prior":   {"enabled": True, "s_max": 60,  "v_min": 180},
-    # 완화된 조건: seed 주변 중하층 구름 흡수용
-    "hsv_relaxed": {"enabled": True, "s_max": 80,  "v_min": 140},
+    # v_min 실험 결과: 180→150 완화 시 IoU 0.44→0.55 최대 향상폭
+    "hsv_prior":   {"enabled": True, "s_max": 60,  "v_min": 150},
+    "hsv_relaxed": {"enabled": True, "s_max": 80,  "v_min": 120},
     "region_grow": {"enabled": True, "iterations": 3},
     "morphology":  {"kernel_size": 5, "open_iter": 2, "close_iter": 3},
     "min_area":    500,
