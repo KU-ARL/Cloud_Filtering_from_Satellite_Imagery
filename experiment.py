@@ -1,6 +1,6 @@
 import os
 from pipeline   import run_pipeline, DEFAULT_CONFIG
-from evaluation import load_ground_truth, calculate_iou, save_ground_truth_image
+from evaluation import load_ground_truth, calculate_metrics, save_ground_truth_image
 
 
 # =========================================================
@@ -12,29 +12,25 @@ from evaluation import load_ground_truth, calculate_iou, save_ground_truth_image
 EXPERIMENT_CONFIGS: list[dict] = [
 
     # =====================================================
-    # Baseline: prior 없음 + region_grow 없음 (순수 threshold)
+    # [1] Baseline
+    #     순수 Otsu+Canny, prior/region_grow 없음
+    #     → 아무것도 안 했을 때의 기준선
     # =====================================================
     {
         "name": "baseline (no prior, no rg)",
         "config": {
             **DEFAULT_CONFIG,
-            "rgb_prior":  {**DEFAULT_CONFIG["rgb_prior"],  "enabled": False},
-            "hsv_prior":  {**DEFAULT_CONFIG["hsv_prior"],  "enabled": False},
+            "rgb_prior":   {**DEFAULT_CONFIG["rgb_prior"],   "enabled": False},
+            "hsv_prior":   {**DEFAULT_CONFIG["hsv_prior"],   "enabled": False},
             "region_grow": {**DEFAULT_CONFIG["region_grow"], "enabled": False},
         },
     },
 
     # =====================================================
-    # Prior 적용 여부 비교
+    # [2] Prior only (region_grow 없음)
+    #     → Prior가 Precision을 극대화함을 증명
+    #       "구름이라고 판단하면 거의 틀리지 않는다"
     # =====================================================
-    {
-        "name": "no_prior (rg active)",
-        "config": {
-            **DEFAULT_CONFIG,
-            "rgb_prior": {**DEFAULT_CONFIG["rgb_prior"], "enabled": False},
-            "hsv_prior": {**DEFAULT_CONFIG["hsv_prior"], "enabled": False},
-        },
-    },
     {
         "name": "both_prior (no region_grow)",
         "config": {
@@ -42,38 +38,19 @@ EXPERIMENT_CONFIGS: list[dict] = [
             "region_grow": {**DEFAULT_CONFIG["region_grow"], "enabled": False},
         },
     },
+
+    # =====================================================
+    # [3] Prior + Region Growing
+    #     → Region Growing이 Recall을 얼마나 회복하는지 확인
+    # =====================================================
     {
         "name": "both_prior + region_grow",
         "config": DEFAULT_CONFIG,
     },
 
     # =====================================================
-    # v_min 완화: 좌측 회색빛 나선 구름 검출 향상
-    # 180→150 구간에서 가장 큰 IoU 향상폭 확인됨
-    # =====================================================
-    {
-        "name": "low_vmin (v>90,  relax v>60)",
-        "config": {
-            **DEFAULT_CONFIG,
-            "hsv_prior":   {**DEFAULT_CONFIG["hsv_prior"],   "v_min": 90},
-            "hsv_relaxed": {**DEFAULT_CONFIG["hsv_relaxed"], "v_min": 60},
-        },
-    },
-
-    # =====================================================
-    # Adaptive Threshold: 국소 영역 기준 임계값
-    # Otsu 단독보다 both(otsu+adaptive) OR 조합이 유효함 확인
-    # =====================================================
-    {
-        "name": "both_thresh (otsu+adaptive)",
-        "config": {
-            **DEFAULT_CONFIG,
-            "threshold": {**DEFAULT_CONFIG["threshold"], "method": "both", "adaptive_block": 51, "adaptive_c": -10},
-        },
-    },
-
-    # =====================================================
-    # 최종 조합: both_thresh + 가장 완화된 v_min
+    # [4] Best combo (Prior 방법 중 F1 최고)
+    #     Adaptive Threshold + v_min 완화 + region_grow
     # =====================================================
     {
         "name": "best_combo (both_thresh + v>90)",
@@ -86,38 +63,30 @@ EXPERIMENT_CONFIGS: list[dict] = [
     },
 
     # =====================================================
-    # 낮은 threshold + prior 필터링
-    # 애초에 넓게 잡고 prior로 깎아내는 원래 의도 구조
-    # Otsu(자동)보다 낮은 고정값으로 더 많은 후보 확보
+    # [5] Low threshold + prior
+    #     → threshold를 극단적으로 낮춰도 prior 결과가 동일함
+    #       "Prior가 있으면 threshold는 무의미하다" 증명
     # =====================================================
     {
-        "name": "low_thresh (t=100) + both_prior",
+        "name": "low_thresh (t=30) + both_prior",
         "config": {
             **DEFAULT_CONFIG,
-            "threshold": {**DEFAULT_CONFIG["threshold"], "value": 100},
+            "threshold": {**DEFAULT_CONFIG["threshold"], "value": 30},
         },
     },
+
+    # =====================================================
+    # [6] Low threshold + no prior (Recall 최대)
+    #     → Precision-Recall 트레이드오프 극단 비교군
+    #       "Prior 없이 무조건 많이 잡으면 Recall은 높지만 Precision이 낮다"
+    # =====================================================
     {
-        "name": "low_thresh (t=80)  + both_prior",
+        "name": "low_thresh (t=30) + no_prior",
         "config": {
             **DEFAULT_CONFIG,
-            "threshold": {**DEFAULT_CONFIG["threshold"], "value": 80},
-        },
-    },
-    {
-        "name": "low_thresh (t=60)  + both_prior",
-        "config": {
-            **DEFAULT_CONFIG,
-            "threshold": {**DEFAULT_CONFIG["threshold"], "value": 60},
-        },
-    },
-    {
-        "name": "low_thresh (t=60)  + no_prior",
-        "config": {
-            **DEFAULT_CONFIG,
-            "threshold":  {**DEFAULT_CONFIG["threshold"],  "value": 60},
-            "rgb_prior":  {**DEFAULT_CONFIG["rgb_prior"],  "enabled": False},
-            "hsv_prior":  {**DEFAULT_CONFIG["hsv_prior"],  "enabled": False},
+            "threshold":   {**DEFAULT_CONFIG["threshold"],   "value": 30},
+            "rgb_prior":   {**DEFAULT_CONFIG["rgb_prior"],   "enabled": False},
+            "hsv_prior":   {**DEFAULT_CONFIG["hsv_prior"],   "enabled": False},
             "region_grow": {**DEFAULT_CONFIG["region_grow"], "enabled": False},
         },
     },
@@ -125,22 +94,15 @@ EXPERIMENT_CONFIGS: list[dict] = [
 
 
 # =====================================================
-# 탐색 완료 / 주석 처리된 실험들
+# 아카이브 (탐색 완료, 위 실험들로 대표됨)
 # =====================================================
-# ARCHIVED_CONFIGS = [
-#     {"name": "rgb_prior only", ...},
-#     {"name": "hsv_prior only", ...},
-#     {"name": "both_prior (tight s<40)", ...},
-#     {"name": "both_prior (loose s<80)", ...},
-#     {"name": "low_vmin (v>150)", ...},
-#     {"name": "low_vmin (v>130)", ...},
-#     {"name": "low_vmin (v>110)", ...},
-#     {"name": "tight_s+low_v (s<40, v>130)", ...},
-#     {"name": "tight_s+low_v (s<30, v>130)", ...},
-#     {"name": "tight_s+low_v (s<40, v>110)", ...},
-#     {"name": "adaptive_thresh (block=51)", ...},
-#     {"name": "adaptive_thresh (block=31)", ...},
-# ]
+# - no_prior (rg active)           → [6]으로 대체
+# - low_vmin sweep (v>150~90)      → [4]에 통합
+# - both_thresh alone              → [4]에 통합
+# - low_thresh (t=100/80/60)+prior → [5]와 동일 결과 확인됨
+# - rgb/hsv prior only             → [2]로 대표
+# - s_max 변형 실험들              → 효과 없음 확인됨
+# - adaptive_thresh block 변형     → both_thresh가 단독보다 유효 확인됨
 
 
 def compare_configs(
@@ -159,15 +121,21 @@ def compare_configs(
     if result_dir:
         os.makedirs(result_dir, exist_ok=True)
 
-    print(f"\n{'설정 이름':<35} IoU")
-    print("-" * 45)
+    print(f"\n{'설정 이름':<35} {'IoU':>6}  {'Prec':>6}  {'Rec':>6}  {'F1':>6}")
+    print("-" * 65)
 
     for cfg in configs:
         mask, overlay = run_pipeline(rgb_path, cfg["config"])
-        iou = calculate_iou(ground_truth, mask)
+        m = calculate_metrics(ground_truth, mask)
 
-        results.append({"name": cfg["name"], "iou": iou})
-        print(f"{cfg['name']:<35} {iou:.4f}")
+        results.append({"name": cfg["name"], **m})
+        print(
+            f"{cfg['name']:<35} "
+            f"{m['iou']:>6.4f}  "
+            f"{m['precision']:>6.4f}  "
+            f"{m['recall']:>6.4f}  "
+            f"{m['f1']:>6.4f}"
+        )
 
         if result_dir:
             filename = cfg["name"].replace(" ", "_").replace("<", "").replace(">", "") + ".png"

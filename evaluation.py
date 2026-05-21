@@ -68,21 +68,51 @@ def save_ground_truth_image(
     cv2.imwrite(save_path, img)
 
 
+def calculate_metrics(
+    ground_truth: np.ndarray,
+    my_mask: np.ndarray,
+) -> dict[str, float]:
+    # =====================================================
+    # 통합 성능 지표 계산
+    #
+    # TP : 우리도 구름, GT도 구름  (맞게 잡음)
+    # FP : 우리는 구름, GT는 맑음  (잘못 잡음)
+    # FN : 우리는 맑음, GT는 구름  (놓침)
+    #
+    # IoU       = TP / (TP + FP + FN)
+    # Precision = TP / (TP + FP)  → 잡은 것 중 맞은 비율
+    # Recall    = TP / (TP + FN)  → 실제 구름 중 잡은 비율
+    # F1        = 조화평균(Precision, Recall)
+    # =====================================================
+    pred = (my_mask > 0).astype(np.uint8)
+
+    if ground_truth.shape != pred.shape:
+        pred = align_mask(pred, ground_truth.shape)
+
+    gt   = ground_truth.astype(bool)
+    pred = pred.astype(bool)
+
+    tp = np.logical_and(gt,  pred).sum()
+    fp = np.logical_and(~gt, pred).sum()
+    fn = np.logical_and(gt,  ~pred).sum()
+
+    iou       = tp / (tp + fp + fn)         if (tp + fp + fn) > 0 else 0.0
+    precision = tp / (tp + fp)              if (tp + fp)      > 0 else 0.0
+    recall    = tp / (tp + fn)              if (tp + fn)      > 0 else 0.0
+    f1        = 2 * precision * recall / (precision + recall) \
+                if (precision + recall)  > 0 else 0.0
+
+    return {
+        "iou":       float(iou),
+        "precision": float(precision),
+        "recall":    float(recall),
+        "f1":        float(f1),
+    }
+
+
 def calculate_iou(
     ground_truth: np.ndarray,
     my_mask: np.ndarray,
 ) -> float:
-    # =====================================================
-    # IoU 계산
-    #
-    # 형태 불일치 시 align_mask로 자동 보정
-    # =====================================================
-    my_mask_bin = (my_mask > 0).astype(np.uint8)
-
-    if ground_truth.shape != my_mask_bin.shape:
-        my_mask_bin = align_mask(my_mask_bin, ground_truth.shape)
-
-    intersection = np.logical_and(ground_truth, my_mask_bin).sum()
-    union        = np.logical_or(ground_truth,  my_mask_bin).sum()
-
-    return float(intersection / union) if union > 0 else 0.0
+    # calculate_metrics의 IoU만 반환 (하위 호환)
+    return calculate_metrics(ground_truth, my_mask)["iou"]
