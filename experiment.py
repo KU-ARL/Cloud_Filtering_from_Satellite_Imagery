@@ -146,11 +146,33 @@ def compare_configs(
 
 if __name__ == "__main__":
     import cv2
+    import glob
 
-    SRC_DIR    = os.path.join(os.path.dirname(__file__), "src")
-    RESULT_DIR = os.path.join(SRC_DIR, "result")
-    rgb_path   = os.path.join(SRC_DIR, "gk2a_ami_le1b_rgb-s-true_ko020lc_202605210410.png")
-    nc_path    = os.path.join(SRC_DIR, "gk2a_ami_le2_cld_ko020lc_202605210410.nc")
+    BASE_DIR = os.path.dirname(__file__)
 
-    save_ground_truth_image(nc_path, os.path.join(RESULT_DIR, "ground_truth.png"))
-    compare_configs(rgb_path, nc_path, result_dir=RESULT_DIR)
+    DATASETS = [
+        os.path.join(BASE_DIR, "cloud_segment_1"),
+        os.path.join(BASE_DIR, "cloud_segment_2"),
+    ]
+
+    for src_dir in DATASETS:
+        rgb_files = glob.glob(os.path.join(src_dir, "gk2a_ami_le1b_rgb-s-true_*.png"))
+        nc_files  = glob.glob(os.path.join(src_dir, "gk2a_ami_le2_cld_*.nc"))
+
+        if not rgb_files or not nc_files:
+            print(f"\n[건너뜀] {src_dir} — rgb 또는 nc 파일 없음")
+            continue
+
+        rgb_path   = rgb_files[0]
+        nc_path    = nc_files[0]
+        result_dir = os.path.join(src_dir, "result")
+
+        print(f"\n{'=' * 65}")
+        print(f"  데이터셋: {os.path.basename(src_dir)}")
+        print(f"  RGB : {os.path.basename(rgb_path)}")
+        print(f"  NC  : {os.path.basename(nc_path)}")
+        print(f"{'=' * 65}")
+
+        os.makedirs(result_dir, exist_ok=True)
+        save_ground_truth_image(nc_path, os.path.join(result_dir, "ground_truth.png"))
+        compare_configs(rgb_path, nc_path, result_dir=result_dir)

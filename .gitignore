@@ -4,6 +4,16 @@
 # *.tif
 # *.tiff
 
+src/result/
+typhoon/
+
+debug_out/
+
+typhoon_result/
+
+cloud_segment_1/
+cloud_segment_2/
+
 # Python cache
 __pycache__/
 *.py[cod]
